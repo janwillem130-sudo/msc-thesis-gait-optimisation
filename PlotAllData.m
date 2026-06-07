@@ -12,6 +12,7 @@ clear; close all; clc;
 % =======================
 dataFolder = 'C:\Users\janwi\MRP\DATA';
 load(fullfile(dataFolder,'allPP.mat'));
+%% ===== REMOVE PP9 =====
 
 names = fieldnames(allPP);
 
@@ -19,6 +20,11 @@ names = fieldnames(allPP);
     str2double(regexp(x,'\d+','match','once')), names));
 
 PP_names = names(idx);
+%% ===== SELECT PP's =====
+PP_select = [1 2 3 4 5];   % <-- HIER kies je welke PP's je wil
+
+PP_names = PP_names(PP_select);
+n_PP = length(PP_names);
 n_PP = length(PP_names);
 
 %% =======================
@@ -324,81 +330,11 @@ set(gca, 'FontSize', 14);
 
 legend('Location','bestoutside', 'FontSize', 12);
 
-%% =======================
-% ADAPTATIE OVER TIJD - ALLE PP IN 1 FIGUUR (SUBPLOTS)
-% RAW = SHADOW, SMOOTH = LIJN
-% =======================
-
-fs = 200;
-window_sec = 100;
-window_samples = window_sec * fs;
-
-nCols = 3; % pas aan indien nodig
-nRows = ceil(n_PP / nCols);
-
-figure('Name','Adaptatie over tijd (alle PP)','NumberTitle','off');
-tiledlayout(nRows, nCols, 'TileSpacing','compact','Padding','compact');
-
-for i = 1:n_PP
-    
-    PP = allPP.(PP_names{i});
-    
-    if ~isfield(PP,'Loadadapt')
-        continue;
-    end
-    
-    Load = PP.Loadadapt;   % 2x1 cell
-    
-    adapt1 = Load{1};
-    adapt2 = Load{2};
-    
-    f1 = adapt1.force(:);
-    t1 = adapt1.time(:);
-    
-    f2 = adapt2.force(:);
-    t2 = adapt2.time(:);
-    
-    % safety: zelfde lengte check
-    f1s = movmean(f1, window_samples);
-    f2s = movmean(f2, window_samples);
-    
-    nexttile;
-    hold on; grid on;
-    
-    % =========================
-    % RAW (SCHADUW - HEEL LICHT)
-    % =========================
-    plot(t1, f1, 'r', 'Color',[1 0 0 0.03], 'LineWidth',0.8);
-    plot(t2, f2, 'b', 'Color',[0 0 1 0.03], 'LineWidth',0.8);
-    
-    % =========================
-    % SMOOTHED
-    % =========================
-    plot(t1, f1s, 'r', 'LineWidth',2);
-    plot(t2, f2s, 'b', 'LineWidth',2);
-    
-    title(PP_names{i}, 'Interpreter','none');
-    
-    % alleen labels op rand (clean look)
-    if i > (nRows-1)*nCols
-        xlabel('Time (s)','FontSize', 14);
-    end
-    if mod(i-1, nCols) == 0
-        ylabel('Force (N/kg)', 'FontSize', 14);
-    end
-
-    ylim([-0.08 0.65])
-end
-
-legend({'','','Pre-exploration force-selection filtered','Post-exploration force-selection filtered'}, ...
-       'Location','southoutside');
-
 
 %% =======================
 % STATISTICAL ANALYSIS
 % =======================
-
-% =======================
+%=============
 % 1. Paired t-tests: Ca2 vs CoT within each adaptation phase
 % =======================
 
@@ -482,7 +418,7 @@ for m = 1:length(metrics)
 end
 
 %% =======================
-% PP x METRIC COST LANDSCAPES (WORKING VERSION)
+% Cost landscapes
 % rows = participants
 % cols = metrics
 % =======================
@@ -657,6 +593,12 @@ h_post = plot(adapt_force_all(i,2), adapt_y(2), 's', ...
                 'FontSize',16);
         end
         
+if m == 4
+
+    ylabel('CoT(kJ kg^{-1} m^{-1})', ...
+        'FontSize',10);
+end
+
         if i == n_PP
             xlabel('Force (N/kg)','FontSize',16);
         end
@@ -675,54 +617,6 @@ lgd = legend([h_min h_pre h_post], ...
 lgd.Layout.Tile = 'south';
 
 
-
-%% =======================
-% MEAN DIFFERENCE Ca2 vs CoT (± SD)
-% =======================
-
-fprintf('\n=== DISTANCE TO OPTIMA ===\n');
-
-% =======================
-% Adaptation 1
-% =======================
-mean_Ca1 = mean(dist_to_min.Ca2.adapt1);
-sd_Ca1   = std(dist_to_min.Ca2.adapt1);
-
-mean_CoT1 = mean(dist_to_min.CoT.adapt1);
-sd_CoT1   = std(dist_to_min.CoT.adapt1);
-
-fprintf('\nAdaptation 1:\n');
-fprintf('Distance to Ca² optimum: %.4f ± %.4f\n', mean_Ca1, sd_Ca1);
-fprintf('Distance to CoT optimum: %.4f ± %.4f\n', mean_CoT1, sd_CoT1);
-
-diff_adapt1 = dist_to_min.Ca2.adapt1 - dist_to_min.CoT.adapt1;
-
-mean_diff1 = mean(diff_adapt1);
-sd_diff1   = std(diff_adapt1);
-
-fprintf('Mean difference (Ca² - CoT): %.4f ± %.4f\n', ...
-    mean_diff1, sd_diff1);
-
-% =======================
-% Adaptation 2
-% =======================
-mean_Ca2 = mean(dist_to_min.Ca2.adapt2);
-sd_Ca2   = std(dist_to_min.Ca2.adapt2);
-
-mean_CoT2 = mean(dist_to_min.CoT.adapt2);
-sd_CoT2   = std(dist_to_min.CoT.adapt2);
-
-fprintf('\nAdaptation 2:\n');
-fprintf('Distance to Ca² optimum: %.4f ± %.4f\n', mean_Ca2, sd_Ca2);
-fprintf('Distance to CoT optimum: %.4f ± %.4f\n', mean_CoT2, sd_CoT2);
-
-diff_adapt2 = dist_to_min.Ca2.adapt2 - dist_to_min.CoT.adapt2;
-
-mean_diff2 = mean(diff_adapt2);
-sd_diff2   = std(diff_adapt2);
-
-fprintf('Mean difference (Ca² - CoT): %.4f ± %.4f\n', ...
-    mean_diff2, sd_diff2);
 
 %% =======================
 % ADAPTATION 1 vs 2 DIFFERENCES (Ca2 & CoT)
@@ -763,7 +657,7 @@ fprintf('t(%d) = %.3f, p = %.4f\n', ...
     stats_CoT.df, stats_CoT.tstat, p_CoT);
 
 %% =======================
-% EXTRA: DIFFERENCE Ca2 vs CoT + ADAPT 1 vs 2 COMPARISON
+%DIFFERENCE Ca2 vs CoT + ADAPT 1 vs 2 COMPARISON
 % =======================
 
 fprintf('\n=== DIFFERENCE Ca² vs CoT (paired) ===\n');
@@ -816,25 +710,23 @@ fprintf('CoT (Adapt2 - Adapt1): %.4f ± %.4f\n', ...
 
 
 
+
 %% =======================
 % GROUP MUSCLE ACTIVATION PLOTS
-% Mean ± SD across participants (force + adaptation)
+% Mean across participants + individual PP points
 % =======================
-
 muscle_fields = { ...
     'BicepsFemoris_force', ...
     'Gastrocnemius_force', ...
     'Soleus_force', ...
     'TibialisAnterior_force', ...
     'VastusMedialis_force'};
-
 muscle_titles = { ...
     'Biceps femoris', ...
     'Gastrocnemius medialis', ...
     'Soleus', ...
     'Tibialis anterior', ...
     'Vastus medialis'};
-
 trial_labels = { ...
     '20%', ...
     '40%', ...
@@ -844,88 +736,85 @@ trial_labels = { ...
     'Adapt 1', ...
     'Adapt 2'};
 
-nMuscles = length(muscle_fields);
-nTrials  = length(trial_labels);
+nMuscles  = length(muscle_fields);
+nTrials   = length(trial_labels);
+force_idx = 1:5;   % only connect the 20%-100% bars with a line
 
 figure('Name','Group muscle activations','NumberTitle','off');
 tiledlayout(3,2,'TileSpacing','compact','Padding','compact');
 
 for m = 1:nMuscles
-    
     % =========================
     % COLLECT DATA
     % =========================
     muscle_data = zeros(n_PP, nTrials);
-    
     for i = 1:n_PP
-        
         PP = allPP.(PP_names{i});
-        
-        % force trials (5 conditions)
         force_vals = PP.(muscle_fields{m})(:);
-        
-        % adaptation trials (explicit mapping = SAFE)
         switch muscle_fields{m}
             case 'BicepsFemoris_force'
                 adapt_vals = [PP.BicepsFemoris_adapt1, PP.BicepsFemoris_adapt2];
-                
             case 'Gastrocnemius_force'
                 adapt_vals = [PP.Gastrocnemius_adapt1, PP.Gastrocnemius_adapt2];
-                
             case 'Soleus_force'
                 adapt_vals = [PP.Soleus_adapt1, PP.Soleus_adapt2];
-                
             case 'TibialisAnterior_force'
                 adapt_vals = [PP.TibialisAnterior_adapt1, PP.TibialisAnterior_adapt2];
-                
             case 'VastusMedialis_force'
                 adapt_vals = [PP.VastusMedialis_adapt1, PP.VastusMedialis_adapt2];
         end
-        
-        % combine correctly (ROW VECTOR)
-   muscle_data(i,:) = [force_vals(:)' adapt_vals(:)'];
-        
+        muscle_data(i,:) = [force_vals(:)' adapt_vals(:)'];
     end
-    
+
     % =========================
-    % MEAN + STD
+    % MEAN ONLY
     % =========================
-    mean_vals = mean(muscle_data,1,'omitnan');
-    std_vals  = std(muscle_data,0,1,'omitnan');
-    
+    mean_vals = mean(muscle_data, 1, 'omitnan');
+
     % =========================
     % PLOT
     % =========================
     nexttile;
     hold on; grid on;
-    
-    bar(mean_vals, 'FaceAlpha', 0.7);
-    
-    errorbar(1:nTrials, mean_vals, std_vals, ...
-        'k.', 'LineWidth', 1.5);
-    
+
+    % Mean bar (excluded from legend)
+    b = bar(mean_vals, 'FaceAlpha', 0.7);
+    b.Annotation.LegendInformation.IconDisplayStyle = 'off';
+
+    % Get color order before plotting PP
+    colors = get(gca, 'ColorOrder');
+
+    % Individual PP points + line only between 20%-100%
+    for i = 1:n_PP
+        c = colors(mod(i-1, size(colors,1))+1, :);
+
+        % line only through force conditions (1:5)
+        plot(force_idx, muscle_data(i, force_idx), ...
+            '-', ...
+            'Color', c, ...
+            'LineWidth', 1.2, ...
+            'HandleVisibility', 'off');
+
+        % dots for all conditions (1:7)
+        plot(1:nTrials, muscle_data(i,:), ...
+            '.', ...
+            'MarkerSize', 20, ...
+            'Color', c, ...
+            'DisplayName', PP_names{i});
+    end
+
     xticks(1:nTrials);
     xticklabels(trial_labels);
     xtickangle(45);
-    
     ylabel('A_i', 'FontSize', 14);
     title(muscle_titles{m});
-    
-    ylim([0 max(mean_vals + std_vals)*1.2]);
-    
-% grotere tick labels
-set(gca, ...
-    'FontSize', 15, ...
-    'LineWidth', 1);
+    ylim([0 max(max(muscle_data))*1.2]);
+    legend('Location', 'northwest', 'FontSize', 10);
 
-
+    set(gca, ...
+        'FontSize', 15, ...
+        'LineWidth', 1);
 end
-
-
-
-
-
-
 %% =======================
 % SIGNED DEVIATION - ADAPT 1 vs ADAPT 2 (1 FIGUUR)
 % =======================
@@ -1009,51 +898,6 @@ for phase = 1:2
 end
 
 
-
-%% =======================
-% PAIRED T-TEST: Ca2 vs CoT
-% per adaptatie phase
-% alpha = 0.05
-% =======================
-
-alpha = 0.05;
-
-fprintf('\n=== PAIRED T-TEST: Ca² vs CoT ===\n');
-
-% =======================
-% ADAPTATION 1
-% =======================
-Ca2_adapt1 = dist_to_min.Ca2.adapt1;
-CoT_adapt1 = dist_to_min.CoT.adapt1;
-
-[~, p1, ~, stats1] = ttest(Ca2_adapt1, CoT_adapt1, 'Alpha', alpha);
-
-fprintf('\nAdaptation 1:\n');
-fprintf('p = %.4f | t(%d) = %.3f\n', p1, stats1.df, stats1.tstat);
-
-if p1 < alpha
-    fprintf('→ SIGNIFICANT (p < 0.05)\n');
-else
-    fprintf('→ NOT significant\n');
-end
-
-
-% =======================
-% ADAPTATION 2
-% =======================
-Ca2_adapt2 = dist_to_min.Ca2.adapt2;
-CoT_adapt2 = dist_to_min.CoT.adapt2;
-
-[~, p2, ~, stats2] = ttest(Ca2_adapt2, CoT_adapt2, 'Alpha', alpha);
-
-fprintf('\nAdaptation 2:\n');
-fprintf('p = %.4f | t(%d) = %.3f\n', p2, stats2.df, stats2.tstat);
-
-if p2 < alpha
-    fprintf('→ SIGNIFICANT (p < 0.05)\n');
-else
-    fprintf('→ NOT significant\n');
-end
 
 
 
@@ -1178,3 +1022,110 @@ for i = 1:n_PP
         
     end
 end
+
+
+%% =======================
+% RMSE / NRMSE PER PARTICIPANT & METRIC (ROBUST + PRINT)
+% =======================
+
+metrics = {'Ca2','CaVol','CaMax','CoT'};
+
+rmse_all = struct();
+nrmse_all = struct();
+
+for m = 1:length(metrics)
+    rmse_all.(metrics{m}) = zeros(n_PP,1);
+    nrmse_all.(metrics{m}) = zeros(n_PP,1);
+end
+
+for i = 1:n_PP
+    
+    PP = allPP.(PP_names{i});
+    f_base = PP.Force_sorted(:);
+    
+    %=======================
+    % CA2 / CaVol / CaMax
+    % =======================
+   for m = 1:length(metrics)
+        
+        metric = metrics{m};
+        
+        % -----------------------
+        % SELECT DATA
+        % -----------------------
+        switch metric
+            case 'Ca2'
+                y = PP.Ca2_force(:);
+            case 'CaVol'
+                y = PP.CaVol_force(:);
+            case 'CaMax'
+                y = PP.CaMax_force(:);
+            case 'CoT'
+                y = PP.CoT_sorted(:);
+        end
+        
+        % -----------------------
+        % ALIGN LENGTH
+        % -----------------------
+        minLen = min(length(f_base), length(y));
+        f = f_base(1:minLen);
+        y = y(1:minLen);
+        
+        % -----------------------
+        % FIT (ALWAYS QUADRATIC)
+        % -----------------------
+        p = polyfit(f, y, 2);
+        y_pred = polyval(p, f);
+        
+        % -----------------------
+        % RMSE
+        % -----------------------
+        err = y - y_pred;
+        rmse = sqrt(mean(err.^2));
+        
+        rmse_all.(metric)(i) = rmse;
+        
+        % -----------------------
+        % NRMSE
+        % -----------------------
+        nrmse_all.(metric)(i) = rmse / range(y);
+    end
+    
+    % =======================
+    % CoT (no model)
+    % =======================
+    y = PP.CoT_sorted(:);
+    
+    minLen = min(length(f_base), length(y));
+    y = y(1:minLen);
+    
+    err = y - mean(y);
+    
+    rmse = sqrt(mean(err.^2));
+    
+    rmse_all.CoT(i) = rmse;
+    nrmse_all.CoT(i) = rmse / range(y);
+end
+
+
+%=======================
+% PRINT RMSE
+% =======================
+
+fprintf('\n=====================================\n');
+fprintf('RMSE SUMMARY (MEAN ± SD)\n');
+fprintf('=====================================\n');
+
+for m = 1:length(metrics)
+    metric = metrics{m};
+    
+    vals = rmse_all.(metric);
+    nvals = nrmse_all.(metric);
+    
+    fprintf('%s:\n', metric);
+    fprintf('  RMSE  : %.4f ± %.4f\n', mean(vals), std(vals));
+    fprintf('  NRMSE : %.4f ± %.4f\n', mean(nvals), std(nvals));
+end
+
+
+grid on;
