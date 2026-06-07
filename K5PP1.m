@@ -1,5 +1,5 @@
-%% =======================
-% FULL SCRIPT: CoT + Adaptation (6 min) + Force vs CoT
+%% 
+
 % =======================
 clear; close all; clc
 
@@ -13,7 +13,7 @@ m = 62;    % kg
 v = 1.25;  % m/s
 
 % Handmatige volgorde (pas aan indien nodig)
-% 1 = rest, 2 = baseline walking, 3..9 = overige trials
+% 1 = rest, 2 = baseline walking, 3..9 = forced
 trial_order = [1 2 3 4 5 6 7 8 9]; 
 trialFiles_sorted = trialFiles(trial_order);
 
@@ -43,10 +43,10 @@ disp('Force trials:'); disp(force_trials);
 % =======================
 data_rest = readmatrix(rest_trial);
 data_rest = data_rest(4:end,[10,15,16]);
-VO2_rest = data_rest(:,2)./1000 .*60;
-VCO2_rest = data_rest(:,3)./1000 .*60;
+VO2_rest = data_rest(:,2)./1000 ./60;
+VCO2_rest = data_rest(:,3)./1000 ./60;
 tijd_rest = (0:10:10*(length(VO2_rest)-1))';
-EE_rest = (16.58 .* VO2_rest + 4.51 .* VCO2_rest);
+EE_rest = 1000*(16.89 .* VO2_rest + 4.82 .* VCO2_rest);
 
 CoT_rest = EE_rest ./ (m .* v);
 lastSec = 180;
@@ -59,10 +59,10 @@ fprintf('\nRest CoT: %.2f J/kg/m\n', meanCoT_rest);
 % =======================
 data_base = readmatrix(baseline_trial);
 data_base = data_base(4:end,[10,15,16]);
-VO2_base = data_base(:,2)./1000 .*60;
-VCO2_base = data_base(:,3)./1000 .*60;
+VO2_base = data_base(:,2)./1000 ./60;
+VCO2_base = data_base(:,3)./1000 ./60;
 tijd_base = (0:10:10*(length(VO2_base)-1))';
-EE_base = (16.58 .* VO2_base + 4.51 .* VCO2_base);
+EE_base = 1000* (16.89 .* VO2_base + 4.82 .* VCO2_base);
 
 CoT_base = EE_base ./ (m .* v);
 lastIdx = tijd_base >= (tijd_base(end) - lastSec);
@@ -81,18 +81,19 @@ meanCoT_all = zeros(1,length(force_trials));
 for k = 1:length(force_trials)
     data1 = readmatrix(force_trials{k});
     data = data1(4:end,[10,15,16]);
-    VO2 = data(:,2)./1000 .*60; VCO2 = data(:,3)./1000 .*60;
+    VO2 = data(:,2)./1000 ./60; VCO2 = data(:,3)./1000 ./60;
     tijd = (0:10:10*(length(VO2)-1))';
     
-EE = (16.58 .* VO2 + 4.51 .* VCO2);
+EE = 1000*(16.89 .* VO2 + 4.82 .* VCO2);
 
 CoT = EE ./ (m .* v);
+    
     
     % Netto tov rest
     CoT_net = CoT - meanCoT_rest;
     
     % Normalisatie tov baseline walking
-    CoT_norm = CoT_net ./ meanCoT_base_net;
+    CoT_norm = CoT_net ;
     
     plot(tijd, CoT_norm, 'LineWidth', 2, 'Color', colors(k,:));
     
@@ -121,7 +122,7 @@ CoT_sorted = meanCoT_all(sort_idx); CoT_sorted = CoT_sorted(:)';
 
 % Voeg baseline toe
 force_all = [0 force_levels_sorted];
-CoT_all_plot = [1 CoT_sorted];  % baseline = 1
+CoT_all_plot = [meanCoT_base_net CoT_sorted];  % baseline = 1
 
 % 2e orde fit
 p = polyfit(force_all, CoT_all_plot, 2);
@@ -150,17 +151,18 @@ for k = 1:length(adaptation_idx)
     trial_name = trialFiles_sorted{adaptation_idx(k)};
     data1 = readmatrix(trial_name);
     data = data1(4:end,[10,15,16]);
-    VO2 = data(:,2)./1000 .*60; VCO2 = data(:,3)./1000 .*60;
+    VO2 = data(:,2)./60 ./1000; VCO2 = data(:,3)./60 ./1000;
     tijd = (0:10:10*(length(VO2)-1))';
     
-EE = (16.58 .* VO2 + 4.51 .* VCO2);
+EE = 1000*(16.89 .* VO2 + 4.82 .* VCO2);
 
 CoT = EE ./ (m .* v);
+    
     CoT_net = CoT - meanCoT_rest;
-    CoT_norm = CoT_net ./ meanCoT_base_net;
+   
     
     lastIdx = tijd >= (tijd(end) - lastSec_adapt);
-    CoT_adapt(k) = mean(CoT_norm(lastIdx));
+    CoT_adapt(k) = mean(CoT_net(lastIdx));
 end
 
 for k = 1:length(CoT_adapt)
@@ -197,70 +199,3 @@ allPP.(PP_name) = existing_PP;
 save(masterFile,'allPP');
 
 disp(['PP ' PP_name ' bijgewerkt in allPP.mat met gesorteerde CoT + adaptation CoT']);
-
-
-%% =======================
-% EXTRA PLOT: CoT per trial in originele volgorde
-% =======================
-
-figure('Name','CoT per trial (originele volgorde)','NumberTitle','off'); hold on;
-
-% Trialnummers (1 = baseline, 2.. = force trials)
-trial_nums = 1:length(force_trials);
-
-% Plotgenormaliseerde CoT voor iedere trial
-bar(trial_nums, meanCoT_all, 'FaceColor',[0.2 0.6 0.8]);
-
-xlabel('Trial nummer (originele volgorde)');
-ylabel('Genormaliseerde CoT (-)');
-title('Genormaliseerde CoT per trial');
-grid on;
-
-% Optioneel: labels op de x-as met trial namen
-xticks(trial_nums);
-xticklabels(force_trials);
-xtickangle(45); % draait labels voor leesbaarheid
-
-
-
-%% =======================
-% Lijnplot: CoT per trial, 3-min avg over hele trial
-% =======================
-figure('Name','CoT per trial (3-min avg over hele trial)','NumberTitle','off'); hold on;
-colors = lines(length(trialFiles_sorted));
-
-bin_size = 180; % 3 minuten in seconden
-
-for k = 1:length(trialFiles_sorted)
-    % Laad data
-    data1 = readmatrix(trialFiles_sorted{k});
-    data = data1(4:end,[10,15,16]);
-    VO2 = data(:,2);
-    VCO2 = data(:,3);
-    tijd = (0:10:10*(length(VO2)-1))';
-    
-    % Bereken CoT netto tov rust
-    CoT = (3.941 .* VO2 + 1.106 .* VCO2) ./ (m .* v);
-    CoT_net = CoT - meanCoT_rest;
-    
-    % =========================
-    % 3-minuten averaging over hele trial
-    % =========================
-    time_bin = floor(tijd / bin_size) * bin_size;          % maak bins
-    [unique_bins, ~, idx] = unique(time_bin);             % unieke bins
-    CoT_avg_per_bin = accumarray(idx, CoT_net, [], @mean); % gemiddelde per bin
-    
-    % Gebruik midden van de bin voor x-as
-    time_mid_bin = unique_bins + bin_size/2;
-    
-    % Plot
-    plot(time_mid_bin, CoT_avg_per_bin, '-o', 'LineWidth', 2, 'Color', colors(k,:));
-end
-
-xlabel('Tijd (s)');
-ylabel('CoT netto tov rust (J/kg/m)');
-title('CoT per trial (3-min avg over hele trial)');
-legend(trialFiles_sorted, 'Interpreter','none','Location','best');
-grid on;
-
-
